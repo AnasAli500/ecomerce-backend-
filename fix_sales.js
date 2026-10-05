@@ -1,8 +1,13 @@
 // Fix ALL sales where total/debt is wrong due to item discount bug
 const { MongoClient } = require('mongodb');
+const dns = require('dns');
+require('dotenv').config();
+
+try { dns.setServers(['8.8.8.8', '1.1.1.1']); } catch (e) {}
 
 async function main() {
-  const client = new MongoClient('mongodb://127.0.0.1:27017');
+  const uri = process.env.MONGODB_URI || 'mongodb+srv://jileElectronic:5rfguiHdkpkttzMN@cluster0.1kmrn4o.mongodb.net/jile_electronics?appName=Cluster0';
+  const client = new MongoClient(uri);
   await client.connect();
   const db = client.db('jile_electronics');
 
