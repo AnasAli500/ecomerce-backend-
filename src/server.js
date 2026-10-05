@@ -13,27 +13,9 @@ const app = express();
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
-const allowedOrigins = [
-  process.env.CLIENT_URL,
-  'https://ecomerce-frorntend.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
-].filter(Boolean);
-
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, curl, Postman)
-      if (!origin) return callback(null, true);
-      if (
-        allowedOrigins.includes(origin) ||
-        /\.vercel\.app$/.test(origin) ||
-        /^http:\/\/localhost:\d+$/.test(origin)
-      ) {
-        return callback(null, true);
-      }
-      return callback(null, true);
-    },
+    origin: true,
     credentials: true,
   })
 );
