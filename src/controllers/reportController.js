@@ -19,6 +19,7 @@ const {
   resolvePeriod,
 } = require('../utils/dateRange');
 const { roundMoney } = require('../utils/money');
+const { calculateSalesProfit } = require('../utils/profit');
 const asyncHandler = require('../utils/asyncHandler');
 
 function periodFromQuery(query) {
@@ -108,7 +109,17 @@ const dashboard = asyncHandler(async (_req, res) => {
     Sale.find(),
     Purchase.find(),
     Expense.find(),
-    Sale.find({ date: { $gte: todayFrom, $lte: todayTo } }),
+    Sale.find({ date: { $gte: todayFrom, $lte: todayTo } }).populate({
+      path: 'items',
+      populate: {
+        path: 'product',
+        select: 'name costPrice purchasePrice category',
+        populate: {
+          path: 'category',
+          select: 'name',
+        },
+      },
+    }),
     SaleItem.find({ createdAt: { $gte: todayFrom, $lte: todayTo } }),
     Expense.find({ date: { $gte: todayFrom, $lte: todayTo } }),
     Product.find({
@@ -117,18 +128,25 @@ const dashboard = asyncHandler(async (_req, res) => {
     }).populate('category', 'name').limit(10),
   ]);
 
+  for (const sale of todaySales) {
+    if (!sale.items || sale.items.length === 0) {
+      const items = await SaleItem.find({ sale: sale._id }).populate({
+        path: 'product',
+        select: 'name costPrice purchasePrice category',
+        populate: { path: 'category', select: 'name' },
+      });
+      sale.items = items;
+    }
+  }
+
   const totalSales = roundMoney(salesAll.reduce((s, x) => s + x.total, 0));
   const totalPurchases = roundMoney(purchasesAll.reduce((s, x) => s + x.total, 0));
   const totalExpenses = roundMoney(expensesAll.reduce((s, x) => s + x.amount, 0));
   const totalCustomerDebt = roundMoney(customers.reduce((s, x) => s + x.totalDebt, 0));
   const currentStockValue = roundMoney(products.reduce((s, p) => s + p.currentStock * p.purchasePrice, 0));
   const todaysSales = roundMoney(todaySales.reduce((s, x) => s + x.total, 0));
-  const todayGross = roundMoney(
-    todayItems.reduce((sum, item) => sum + ((item.sellingPrice - item.purchasePrice) * item.quantity - item.discount), 0)
-  );
-  const todayDiscount = roundMoney(todaySales.reduce((s, x) => s + x.discount, 0));
-  const todayExpenseTotal = roundMoney(todayExpenses.reduce((s, x) => s + x.amount, 0));
-  const todaysProfit = roundMoney(todayGross - todayDiscount - todayExpenseTotal);
+  const { summary: todayProfitSummary } = calculateSalesProfit(todaySales);
+  const todaysProfit = todayProfitSummary.totalProfit;
 
   const now = new Date();
   const daily = [];

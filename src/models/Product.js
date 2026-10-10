@@ -7,6 +7,7 @@ const productSchema = new mongoose.Schema(
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     sellingPrice: { type: Number, required: true, min: 0 },
     purchasePrice: { type: Number, required: true, min: 0 },
+    costPrice: { type: Number, min: 0 },
     currentStock: { type: Number, required: true, min: 0, default: 0 },
     minStock: { type: Number, required: true, min: 0, default: 0 },
     image: { type: String, default: '' },
@@ -16,6 +17,16 @@ const productSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+productSchema.pre('save', function (next) {
+  if ((this.costPrice === undefined || this.costPrice === null) && this.purchasePrice !== undefined) {
+    this.costPrice = this.purchasePrice;
+  }
+  if ((this.purchasePrice === undefined || this.purchasePrice === null) && this.costPrice !== undefined) {
+    this.purchasePrice = this.costPrice;
+  }
+  next();
+});
 
 productSchema.index({ name: 'text', sku: 'text' });
 productSchema.virtual('isLowStock').get(function isLowStock() {

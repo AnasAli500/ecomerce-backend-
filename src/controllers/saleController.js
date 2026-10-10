@@ -5,7 +5,8 @@ const { nextNumber } = require('../utils/invoice');
 const { paymentStatus, roundMoney } = require('../utils/money');
 const { success, paginated } = require('../utils/apiResponse');
 const { parsePagination, paginationMeta } = require('../utils/pagination');
-const { resolvePeriod } = require('../utils/dateRange');
+const { resolvePeriod, startOfDay, endOfDay } = require('../utils/dateRange');
+const { calculateSalesProfit } = require('../utils/profit');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { escapeRegex } = require('../utils/escapeRegex');
@@ -84,13 +85,15 @@ const createSale = asyncHandler(async (req, res) => {
     if (isNaN(lineDiscount) || lineDiscount < 0) {
       throw new AppError('Line discount cannot be negative.', 400);
     }
+    const costPrice = Number(product.costPrice ?? product.purchasePrice ?? 0);
     const lineTotal = roundMoney(Math.max(sellingPrice * qty - lineDiscount, 0));
     subtotal += lineTotal;
     prepared.push({
       product,
       quantity: qty,
       sellingPrice,
-      purchasePrice: product.purchasePrice,
+      costPrice,
+      purchasePrice: costPrice,
       discount: lineDiscount,
       lineTotal,
       productName: product.name,
@@ -140,6 +143,7 @@ const createSale = asyncHandler(async (req, res) => {
       sku: row.sku,
       quantity: row.quantity,
       sellingPrice: row.sellingPrice,
+      costPrice: row.costPrice,
       purchasePrice: row.purchasePrice,
       discount: row.discount,
       lineTotal: row.lineTotal,
@@ -241,13 +245,15 @@ const updateSale = asyncHandler(async (req, res) => {
     if (isNaN(lineDiscount) || lineDiscount < 0) {
       throw new AppError('Line discount cannot be negative.', 400);
     }
+    const costPrice = Number(product.costPrice ?? product.purchasePrice ?? 0);
     const lineTotal = roundMoney(Math.max(sellingPrice * qty - lineDiscount, 0));
     subtotal += lineTotal;
     prepared.push({
       product,
       quantity: qty,
       sellingPrice,
-      purchasePrice: product.purchasePrice,
+      costPrice,
+      purchasePrice: costPrice,
       discount: lineDiscount,
       lineTotal,
       productName: product.name,
@@ -282,6 +288,7 @@ const updateSale = asyncHandler(async (req, res) => {
       sku: row.sku,
       quantity: row.quantity,
       sellingPrice: row.sellingPrice,
+      costPrice: row.costPrice,
       purchasePrice: row.purchasePrice,
       discount: row.discount,
       lineTotal: row.lineTotal,
@@ -366,4 +373,69 @@ const deleteSale = asyncHandler(async (req, res) => {
   success(res, null, 'Sale deleted');
 });
 
-module.exports = { listSales, getSale, createSale, updateSale, deleteSale, saleValidators };
+const getProfit = asyncHandler(async (req, res) => {
+  let from;
+  let to;
+
+  if (req.query.from && req.query.to) {
+    from = startOfDay(new Date(req.query.from));
+    to = endOfDay(new Date(req.query.to));
+  } else if (req.query.from) {
+    from = startOfDay(new Date(req.query.from));
+    to = endOfDay(new Date(req.query.from));
+  } else if (req.query.to) {
+    from = startOfDay(new Date(req.query.to));
+    to = endOfDay(new Date(req.query.to));
+  } else if (req.query.period) {
+    const range = resolvePeriod(req.query);
+    if (range) {
+      from = range.from;
+      to = range.to;
+    } else {
+      from = startOfDay();
+      to = endOfDay();
+    }
+  } else {
+    from = startOfDay();
+    to = endOfDay();
+  }
+
+  const sales = await Sale.find({ date: { $gte: from, $lte: to } })
+    .populate('customer', 'name')
+    .populate({
+      path: 'items',
+      populate: {
+        path: 'product',
+        select: 'name costPrice purchasePrice category',
+        populate: {
+          path: 'category',
+          select: 'name',
+        },
+      },
+    })
+    .sort({ date: -1 });
+
+  for (const sale of sales) {
+    if (!sale.items || sale.items.length === 0) {
+      const items = await SaleItem.find({ sale: sale._id }).populate({
+        path: 'product',
+        select: 'name costPrice purchasePrice category',
+        populate: { path: 'category', select: 'name' },
+      });
+      sale.items = items;
+    }
+  }
+
+  const result = calculateSalesProfit(sales);
+  success(res, result);
+});
+
+module.exports = {
+  listSales,
+  getSale,
+  createSale,
+  updateSale,
+  deleteSale,
+  getProfit,
+  saleValidators,
+};

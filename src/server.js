@@ -68,14 +68,18 @@ async function ensureDefaultCustomer() {
   }
 }
 
-connectDb()
-  .then(async () => {
-    await ensureDefaultCustomer();
-    app.listen(port, () => {
-      console.log(`API listening on port ${port}`);
+if (require.main === module) {
+  connectDb()
+    .then(async () => {
+      await ensureDefaultCustomer();
+      app.listen(port, () => {
+        console.log(`API listening on port ${port}`);
+      });
+    })
+    .catch((err) => {
+      console.error('Failed to start server', err);
+      process.exit(1);
     });
-  })
-  .catch((err) => {
-    console.error('Failed to start server', err);
-    process.exit(1);
-  });
+}
+
+module.exports = { app, ensureDefaultCustomer };
