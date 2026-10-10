@@ -51,6 +51,10 @@ const getSale = asyncHandler(async (req, res) => {
 
 const createSale = asyncHandler(async (req, res) => {
   const { customer: customerId, items, discount = 0, paid, notes } = req.body;
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    throw new AppError('At least one product is required.', 400);
+  }
+
   const customer = await Customer.findById(customerId);
   if (!customer) throw new AppError('Customer not found.', 404);
 
@@ -58,18 +62,29 @@ const createSale = asyncHandler(async (req, res) => {
   const prepared = [];
 
   for (const item of items) {
+    if (!item.product) {
+      throw new AppError('Product selection is required for all items.', 400);
+    }
     const product = await Product.findById(item.product);
     if (!product || product.isDeleted || product.status !== 'active') {
-      throw new AppError('One of the products is unavailable.');
+      throw new AppError('One of the selected products is unavailable.', 400);
     }
     const qty = Number(item.quantity);
-    if (qty <= 0) throw new AppError('Quantity must be greater than 0.');
+    if (isNaN(qty) || qty <= 0) {
+      throw new AppError('Quantity must be greater than 0 for all items.', 400);
+    }
     if (product.currentStock < qty) {
-      throw new AppError(`Insufficient stock for ${product.name}.`);
+      throw new AppError(`Insufficient stock for ${product.name}. Available: ${product.currentStock}`, 400);
     }
     const sellingPrice = Number(item.sellingPrice ?? product.sellingPrice);
+    if (isNaN(sellingPrice) || sellingPrice < 0) {
+      throw new AppError('Price cannot be negative.', 400);
+    }
     const lineDiscount = Number(item.discount || 0);
-    const lineTotal = roundMoney(sellingPrice * qty - lineDiscount);
+    if (isNaN(lineDiscount) || lineDiscount < 0) {
+      throw new AppError('Line discount cannot be negative.', 400);
+    }
+    const lineTotal = roundMoney(Math.max(sellingPrice * qty - lineDiscount, 0));
     subtotal += lineTotal;
     prepared.push({
       product,
@@ -83,9 +98,21 @@ const createSale = asyncHandler(async (req, res) => {
     });
   }
 
-  const orderDiscount = roundMoney(Number(discount) || 0);
+  const orderDiscount = roundMoney(Math.max(Number(discount) || 0, 0));
   const total = roundMoney(Math.max(subtotal - orderDiscount, 0));
-  const paidAmount = roundMoney(Math.min(Number(paid) || 0, total));
+
+  const rawPaid = Number(paid);
+  if (isNaN(rawPaid) || rawPaid < 0) {
+    throw new AppError('Paid amount is invalid.', 400);
+  }
+  if (rawPaid > total) {
+    throw new AppError('Paid amount cannot exceed the final total.', 400);
+  }
+  if (customer.isWalkIn && rawPaid < total) {
+    throw new AppError('Normal Customer must pay in full', 400);
+  }
+
+  const paidAmount = roundMoney(rawPaid);
   const debt = roundMoney(total - paidAmount);
   const invoiceNumber = await nextNumber('sale', 'SALE');
 
@@ -151,6 +178,9 @@ const updateSale = asyncHandler(async (req, res) => {
   if (!sale) throw new AppError('Sale not found.', 404);
 
   const { customer: customerId, items, discount = 0, paid, notes } = req.body;
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    throw new AppError('At least one product is required.', 400);
+  }
 
   const customer = await Customer.findById(customerId);
   if (!customer) throw new AppError('Customer not found.', 404);
@@ -189,18 +219,29 @@ const updateSale = asyncHandler(async (req, res) => {
   const prepared = [];
 
   for (const item of items) {
+    if (!item.product) {
+      throw new AppError('Product selection is required for all items.', 400);
+    }
     const product = await Product.findById(item.product);
     if (!product || product.isDeleted || product.status !== 'active') {
-      throw new AppError('One of the products is unavailable.');
+      throw new AppError('One of the products is unavailable.', 400);
     }
     const qty = Number(item.quantity);
-    if (qty <= 0) throw new AppError('Quantity must be greater than 0.');
+    if (isNaN(qty) || qty <= 0) {
+      throw new AppError('Quantity must be greater than 0 for all items.', 400);
+    }
     if (product.currentStock < qty) {
-      throw new AppError(`Insufficient stock for ${product.name}.`);
+      throw new AppError(`Insufficient stock for ${product.name}. Available: ${product.currentStock}`, 400);
     }
     const sellingPrice = Number(item.sellingPrice ?? product.sellingPrice);
+    if (isNaN(sellingPrice) || sellingPrice < 0) {
+      throw new AppError('Price cannot be negative.', 400);
+    }
     const lineDiscount = Number(item.discount || 0);
-    const lineTotal = roundMoney(sellingPrice * qty - lineDiscount);
+    if (isNaN(lineDiscount) || lineDiscount < 0) {
+      throw new AppError('Line discount cannot be negative.', 400);
+    }
+    const lineTotal = roundMoney(Math.max(sellingPrice * qty - lineDiscount, 0));
     subtotal += lineTotal;
     prepared.push({
       product,
@@ -214,9 +255,21 @@ const updateSale = asyncHandler(async (req, res) => {
     });
   }
 
-  const orderDiscount = roundMoney(Number(discount) || 0);
+  const orderDiscount = roundMoney(Math.max(Number(discount) || 0, 0));
   const total = roundMoney(Math.max(subtotal - orderDiscount, 0));
-  const paidAmount = roundMoney(Math.min(Number(paid) || 0, total));
+
+  const rawPaid = Number(paid);
+  if (isNaN(rawPaid) || rawPaid < 0) {
+    throw new AppError('Paid amount is invalid.', 400);
+  }
+  if (rawPaid > total) {
+    throw new AppError('Paid amount cannot exceed the final total.', 400);
+  }
+  if (customer.isWalkIn && rawPaid < total) {
+    throw new AppError('Normal Customer must pay in full', 400);
+  }
+
+  const paidAmount = roundMoney(rawPaid);
   const debt = roundMoney(total - paidAmount);
 
   // 4. Create new sale items & apply stock

@@ -9,6 +9,7 @@ const customerSchema = new mongoose.Schema(
     totalPurchases: { type: Number, default: 0, min: 0 },
     totalPaid: { type: Number, default: 0, min: 0 },
     totalDebt: { type: Number, default: 0, min: 0 },
+    isWalkIn: { type: Boolean, default: false },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   },
   { timestamps: true }

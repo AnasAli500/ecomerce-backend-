@@ -151,7 +151,8 @@ async function seed() {
 
   const [iphone17, iphone16, s26, airpods, phoneCase, charger] = products;
 
-  const [ahmed, mohamed, abdi] = await Customer.insertMany([
+  const [normalCustomer, ahmed, mohamed, abdi] = await Customer.insertMany([
+    { name: 'Normal Customer', phone: '-', isWalkIn: true, status: 'active' },
     { name: 'Ahmed Ali', phone: '+252 61 200 1111', email: 'ahmed.ali@example.com', address: 'Hodan, Mogadishu' },
     { name: 'Mohamed Hassan', phone: '+252 61 200 2222', email: 'mohamed.hassan@example.com', address: 'Wadajir, Mogadishu' },
     { name: 'Abdi Noor', phone: '+252 61 200 3333', email: 'abdi.noor@example.com', address: 'Hamar Weyne, Mogadishu' },

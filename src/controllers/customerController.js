@@ -63,22 +63,35 @@ const createCustomer = asyncHandler(async (req, res) => {
 });
 
 const updateCustomer = asyncHandler(async (req, res) => {
+  const customer = await Customer.findById(req.params.id);
+  if (!customer) throw new AppError('Customer not found.', 404);
+
+  if (customer.isWalkIn && req.body.name !== undefined && req.body.name.trim() !== customer.name) {
+    throw new AppError('Cannot rename the default walk-in customer.', 400);
+  }
+
   const allowed = ['name', 'phone', 'email', 'address', 'status'];
   const payload = {};
   allowed.forEach((key) => {
-    if (req.body[key] !== undefined) payload[key] = req.body[key];
+    if (req.body[key] !== undefined) {
+      if (customer.isWalkIn && key === 'name') return;
+      payload[key] = req.body[key];
+    }
   });
-  const customer = await Customer.findByIdAndUpdate(req.params.id, payload, {
+
+  const updatedCustomer = await Customer.findByIdAndUpdate(req.params.id, payload, {
     new: true,
     runValidators: true,
   });
-  if (!customer) throw new AppError('Customer not found.', 404);
-  success(res, { customer }, 'Customer updated');
+  success(res, { customer: updatedCustomer }, 'Customer updated');
 });
 
 const deleteCustomer = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.params.id);
   if (!customer) throw new AppError('Customer not found.', 404);
+  if (customer.isWalkIn) {
+    throw new AppError('Cannot delete the default walk-in customer.', 400);
+  }
   if (customer.totalDebt > 0) throw new AppError('Cannot delete a customer with outstanding debt.');
   await customer.deleteOne();
   success(res, {}, 'Customer deleted');

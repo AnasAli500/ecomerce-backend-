@@ -6,6 +6,7 @@ const helmet = require('helmet');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const { connectDb } = require('./config/db');
+const { Customer } = require('./models');
 const apiRoutes = require('./routes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
@@ -44,8 +45,32 @@ app.use(errorHandler);
 
 const port = process.env.PORT || 5000;
 
+async function ensureDefaultCustomer() {
+  try {
+    const walkIn = await Customer.findOne({ isWalkIn: true });
+    if (!walkIn) {
+      const existing = await Customer.findOne({ name: 'Normal Customer' });
+      if (existing) {
+        existing.isWalkIn = true;
+        if (!existing.phone || existing.phone.trim() === '') existing.phone = '-';
+        await existing.save();
+      } else {
+        await Customer.create({
+          name: 'Normal Customer',
+          phone: '-',
+          isWalkIn: true,
+          status: 'active',
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to ensure default walk-in customer:', err.message);
+  }
+}
+
 connectDb()
-  .then(() => {
+  .then(async () => {
+    await ensureDefaultCustomer();
     app.listen(port, () => {
       console.log(`API listening on port ${port}`);
     });
