@@ -13,6 +13,7 @@ const SupplierPayment = require('./SupplierPayment');
 const Expense = require('./Expense');
 const Counter = require('./Counter');
 const Settings = require('./Settings');
+const AiAuditLog = require('./AiAuditLog');
 
 module.exports = {
   User,
@@ -30,4 +31,5 @@ module.exports = {
   Expense,
   Counter,
   Settings,
+  AiAuditLog,
 };
