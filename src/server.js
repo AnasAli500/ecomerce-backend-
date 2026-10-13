@@ -35,10 +35,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+const assistantRoutes = require('./routes/assistant');
+
 app.get('/api/health', (_req, res) => {
   res.json({ success: true, message: 'API is running' });
 });
 
+app.use('/api/assistant', assistantRoutes);
+app.use('/api/api/assistant', assistantRoutes);
 app.use('/api', apiRoutes);
 app.use(notFound);
 app.use(errorHandler);

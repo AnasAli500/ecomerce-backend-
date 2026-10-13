@@ -13,6 +13,7 @@ const expenseRoutes = require('./expenseRoutes');
 const reportRoutes = require('./reportRoutes');
 const settingsRoutes = require('./settingsRoutes');
 const aiRoutes = require('./aiRoutes');
+const assistantRoutes = require('./assistant');
 
 const router = express.Router();
 
@@ -30,5 +31,6 @@ router.use('/expenses', expenseRoutes);
 router.use('/reports', reportRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/ai', aiRoutes);
+router.use('/assistant', assistantRoutes);
 
 module.exports = router;
