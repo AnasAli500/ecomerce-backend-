@@ -35,14 +35,34 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-const assistantRoutes = require('./routes/assistant');
-
 app.get('/api/health', (_req, res) => {
-  res.json({ success: true, message: 'API is running' });
+  res.json({
+    success: true,
+    message: 'API is running',
+    build: 'ai-routes-v2',
+    ai: { chat: '/api/ai/chat', assistant: '/api/assistant' },
+  });
 });
 
-app.use('/api/assistant', assistantRoutes);
-app.use('/api/api/assistant', assistantRoutes);
+function mountAiRoutes() {
+  const aiRoutes = require('./routes/aiRoutes');
+  const assistantRoutes = require('./routes/assistant');
+
+  // Direct mounts so these never depend on routes/index.js
+  app.use('/api/ai', aiRoutes);
+  app.use('/api/assistant', assistantRoutes);
+  // Tolerate clients that already include /api in the base URL
+  app.use('/api/api/ai', aiRoutes);
+  app.use('/api/api/assistant', assistantRoutes);
+  console.log('[boot] AI routes mounted: /api/ai/chat, /api/assistant');
+}
+
+try {
+  mountAiRoutes();
+} catch (err) {
+  console.error('[boot] Failed to mount AI routes', err);
+}
+
 app.use('/api', apiRoutes);
 app.use(notFound);
 app.use(errorHandler);

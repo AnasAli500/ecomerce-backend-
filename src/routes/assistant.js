@@ -144,5 +144,6 @@ const handleAssistant = async (req, res) => {
 };
 
 router.post('/', handleAssistant);
+router.post('/chat', handleAssistant);
 
 module.exports = router;

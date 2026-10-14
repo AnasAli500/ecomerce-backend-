@@ -12,8 +12,6 @@ const paymentRoutes = require('./paymentRoutes');
 const expenseRoutes = require('./expenseRoutes');
 const reportRoutes = require('./reportRoutes');
 const settingsRoutes = require('./settingsRoutes');
-const aiRoutes = require('./aiRoutes');
-const assistantRoutes = require('./assistant');
 
 const router = express.Router();
 
@@ -30,7 +28,14 @@ router.use('/payments', paymentRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/reports', reportRoutes);
 router.use('/settings', settingsRoutes);
-router.use('/ai', aiRoutes);
-router.use('/assistant', assistantRoutes);
+
+try {
+  const aiRoutes = require('./aiRoutes');
+  const assistantRoutes = require('./assistant');
+  router.use('/ai', aiRoutes);
+  router.use('/assistant', assistantRoutes);
+} catch (err) {
+  console.error('[routes] Failed to mount AI/assistant routers', err);
+}
 
 module.exports = router;
