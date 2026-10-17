@@ -39,7 +39,8 @@ function cleanExpiredActions() {
     }
   }
 }
-setInterval(cleanExpiredActions, 5 * 60 * 1000);
+const cleanupTimer = setInterval(cleanExpiredActions, 5 * 60 * 1000);
+if (cleanupTimer.unref) cleanupTimer.unref();
 
 function parseDateRange(period, customFrom, customTo) {
   const now = new Date();
@@ -1185,6 +1186,193 @@ async function executeConfirmedAction({ actionId, token, user, ip = '' }) {
   }
 }
 
+/**
+ * 13. Search Products Detail
+ */
+async function searchProductsDetail({ query, limit = 8 }) {
+  if (!query || !query.trim()) {
+    return { count: 0, products: [] };
+  }
+  const cleanQ = query.trim();
+  const filter = {
+    isDeleted: false,
+    $or: [
+      { name: new RegExp(cleanQ, 'i') },
+      { sku: new RegExp(cleanQ, 'i') },
+      { description: new RegExp(cleanQ, 'i') },
+    ],
+  };
+
+  const prods = await Product.find(filter)
+    .populate('category', 'name')
+    .limit(limit);
+
+  return {
+    query: cleanQ,
+    count: prods.length,
+    products: prods.map((p) => ({
+      id: p._id,
+      name: p.name,
+      sku: p.sku,
+      category: p.category?.name || 'Uncategorized',
+      currentStock: p.currentStock,
+      minStock: p.minStock,
+      sellingPrice: p.sellingPrice,
+      purchasePrice: p.purchasePrice,
+      status: p.currentStock <= 0 ? 'Out of Stock' : p.currentStock <= p.minStock ? 'Low Stock' : 'In Stock',
+      description: p.description || '',
+    })),
+  };
+}
+
+/**
+ * 14. Search Customer Detail & Debt
+ */
+async function searchCustomerDetail({ query, limit = 5 }) {
+  if (!query || !query.trim()) {
+    return { count: 0, customers: [] };
+  }
+  const cleanQ = query.trim();
+  const customers = await Customer.find({
+    $or: [
+      { name: new RegExp(cleanQ, 'i') },
+      { phone: new RegExp(cleanQ, 'i') },
+      { email: new RegExp(cleanQ, 'i') },
+    ],
+  }).limit(limit);
+
+  return {
+    query: cleanQ,
+    count: customers.length,
+    customers: customers.map((c) => ({
+      id: c._id,
+      name: c.name,
+      phone: c.phone || 'No phone',
+      email: c.email || '',
+      address: c.address || '',
+      totalDebt: c.totalDebt || 0,
+      totalPurchases: c.totalPurchases || 0,
+      totalPaid: c.totalPaid || 0,
+      debtStatus: c.debtStatus || (c.totalDebt > 0 ? 'debt' : 'clear'),
+    })),
+  };
+}
+
+/**
+ * 15. Search Supplier Detail
+ */
+async function searchSupplierDetail({ query, limit = 5 }) {
+  if (!query || !query.trim()) {
+    return { count: 0, suppliers: [] };
+  }
+  const cleanQ = query.trim();
+  const suppliers = await Supplier.find({
+    $or: [
+      { name: new RegExp(cleanQ, 'i') },
+      { company: new RegExp(cleanQ, 'i') },
+      { phone: new RegExp(cleanQ, 'i') },
+    ],
+  }).limit(limit);
+
+  return {
+    query: cleanQ,
+    count: suppliers.length,
+    suppliers: suppliers.map((s) => ({
+      id: s._id,
+      name: s.name,
+      company: s.company || '',
+      phone: s.phone || '',
+      totalPurchases: s.totalPurchases || 0,
+      amountPaid: s.amountPaid || 0,
+      amountDue: s.amountDue || 0,
+    })),
+  };
+}
+
+/**
+ * 16. System Settings
+ */
+async function getSystemSettingsData() {
+  const { Settings } = require('../models');
+  let settings = await Settings.findOne();
+  if (!settings) {
+    settings = {
+      storeName: 'JILE Electronics',
+      email: 'info@jileelectronics.com',
+      phone: '+252 61 000 0000',
+      address: 'Mogadishu, Somalia',
+      currency: '$',
+      invoicePrefix: 'INV-',
+    };
+  }
+  return {
+    storeName: settings.storeName || 'JILE Electronics',
+    phone: settings.phone || '',
+    email: settings.email || '',
+    address: settings.address || '',
+    currency: settings.currency || '$',
+    invoicePrefix: settings.invoicePrefix || 'INV-',
+  };
+}
+
+/**
+ * 17. Categories List
+ */
+async function getCategoriesList() {
+  const categories = await Category.find().sort({ name: 1 });
+  const counts = await Product.aggregate([
+    { $match: { isDeleted: false } },
+    { $group: { _id: '$category', count: { $sum: 1 } } },
+  ]);
+  const countMap = {};
+  for (const c of counts) {
+    if (c._id) countMap[c._id.toString()] = c.count;
+  }
+  return {
+    count: categories.length,
+    categories: categories.map((cat) => ({
+      id: cat._id,
+      name: cat.name,
+      description: cat.description || '',
+      productCount: countMap[cat._id.toString()] || 0,
+    })),
+  };
+}
+
+/**
+ * 18. Search Sale Invoices
+ */
+async function searchSaleInvoices({ query, limit = 5 }) {
+  if (!query || !query.trim()) {
+    return { count: 0, sales: [] };
+  }
+  const cleanQ = query.trim();
+  const sales = await Sale.find({
+    $or: [
+      { invoiceNumber: new RegExp(cleanQ, 'i') },
+    ],
+  })
+    .populate('customer', 'name phone')
+    .sort({ date: -1 })
+    .limit(limit);
+
+  return {
+    query: cleanQ,
+    count: sales.length,
+    sales: sales.map((s) => ({
+      id: s._id,
+      invoiceNumber: s.invoiceNumber,
+      customer: s.customer?.name || 'Walk-in Customer',
+      phone: s.customer?.phone || '',
+      total: s.total,
+      paid: s.paid,
+      debt: s.debt,
+      paymentStatus: s.paymentStatus,
+      date: s.date,
+    })),
+  };
+}
+
 module.exports = {
   getSalesMetrics,
   getProfitMetrics,
@@ -1201,5 +1389,11 @@ module.exports = {
   prepareUpdateProduct,
   preparePurchase,
   executeConfirmedAction,
+  searchProductsDetail,
+  searchCustomerDetail,
+  searchSupplierDetail,
+  getSystemSettingsData,
+  getCategoriesList,
+  searchSaleInvoices,
   stagedActions,
 };

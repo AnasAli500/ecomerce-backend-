@@ -230,6 +230,93 @@ const AI_TOOLS = [
     },
   },
 
+  {
+    type: 'function',
+    function: {
+      name: 'search_products_detail',
+      description: 'Search for specific products by name, SKU, or keyword to retrieve real stock, selling price, purchase price, category, and availability status.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Product name or SKU or keyword to find' },
+          limit: { type: 'number', description: 'Maximum products to return (default 8)' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+
+  {
+    type: 'function',
+    function: {
+      name: 'search_customer_detail',
+      description: 'Search for a specific customer by name or phone number to check their balance, total debt, total purchases, and debt status.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Customer name or phone number' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+
+  {
+    type: 'function',
+    function: {
+      name: 'search_supplier_detail',
+      description: 'Search for a specific supplier by name or company to check orders and amount owed.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Supplier name or company' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+
+  {
+    type: 'function',
+    function: {
+      name: 'get_system_settings',
+      description: 'Retrieve current store settings, branding, phone, address, currency symbol, and invoice prefix.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
+
+  {
+    type: 'function',
+    function: {
+      name: 'get_categories_list',
+      description: 'Retrieve the list of product categories and product counts in the store.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
+
+  {
+    type: 'function',
+    function: {
+      name: 'search_sale_invoices',
+      description: 'Search for past sale transactions by invoice number or keyword.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Invoice number (e.g. SALE-0001) or customer name' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+
   // PREPARATION TOOLS (Preview & Staging Actions with explicit user confirmation)
   {
     type: 'function',
