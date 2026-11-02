@@ -21,7 +21,11 @@ const listCustomers = asyncHandler(async (req, res) => {
     ];
   }
   if (req.query.status) filter.status = req.query.status;
-  if (req.query.debt === 'true') filter.totalDebt = { $gt: 0 };
+  if (req.query.debtFilter === 'debt' || req.query.debtFilter === 'outstanding' || req.query.debt === 'true') {
+    filter.totalDebt = { $gt: 0 };
+  } else if (req.query.debtFilter === 'paid' || req.query.debtFilter === 'fully_paid' || req.query.debt === 'paid' || req.query.debt === 'false') {
+    filter.totalDebt = { $lte: 0 };
+  }
 
   const [items, total] = await Promise.all([
     Customer.find(filter).sort(sort).skip(skip).limit(limit),
@@ -36,7 +40,7 @@ const getCustomer = asyncHandler(async (req, res) => {
 
   const [sales, payments] = await Promise.all([
     Sale.find({ customer: customer._id }).populate('items').sort({ date: -1 }),
-    CustomerPayment.find({ customer: customer._id }).sort({ date: -1 }),
+    CustomerPayment.find({ customer: customer._id }).populate('createdBy', 'name').sort({ date: -1 }),
   ]);
 
   success(res, {

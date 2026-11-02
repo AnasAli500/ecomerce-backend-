@@ -27,10 +27,10 @@ async function applyStockChange({
   const newStock = type === 'in' ? previousStock + qty : previousStock - qty;
 
   if (newStock < 0) {
-    throw new AppError(`Insufficient stock for ${product.name}. Available: ${previousStock}.`);
+    throw new AppError(`Insufficient stock for ${product.name}. Available: ${previousStock}. Stock cannot become negative.`, 400);
   }
 
-  product.currentStock = newStock;
+  product.currentStock = Math.max(newStock, 0);
   await product.save();
 
   const movement = await StockMovement.create({

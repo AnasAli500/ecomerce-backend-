@@ -26,7 +26,9 @@ const listProducts = asyncHandler(async (req, res) => {
   }
   if (req.query.category) filter.category = req.query.category;
   if (req.query.status) filter.status = req.query.status;
-  if (req.query.lowStock === 'true') {
+  if (req.query.outOfStock === 'true') {
+    filter.currentStock = { $lte: 0 };
+  } else if (req.query.lowStock === 'true') {
     filter.$expr = { $lte: ['$currentStock', '$minStock'] };
   }
 

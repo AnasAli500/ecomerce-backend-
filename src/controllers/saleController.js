@@ -74,8 +74,11 @@ const createSale = asyncHandler(async (req, res) => {
     if (isNaN(qty) || qty <= 0) {
       throw new AppError('Quantity must be greater than 0 for all items.', 400);
     }
+    if (product.currentStock <= 0) {
+      throw new AppError(`Cannot sell "${product.name}". Product is out of stock.`, 400);
+    }
     if (product.currentStock < qty) {
-      throw new AppError(`Insufficient stock for ${product.name}. Available: ${product.currentStock}`, 400);
+      throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.currentStock}, requested: ${qty}.`, 400);
     }
     const sellingPrice = Number(item.sellingPrice ?? product.sellingPrice);
     if (isNaN(sellingPrice) || sellingPrice < 0) {
@@ -234,8 +237,11 @@ const updateSale = asyncHandler(async (req, res) => {
     if (isNaN(qty) || qty <= 0) {
       throw new AppError('Quantity must be greater than 0 for all items.', 400);
     }
+    if (product.currentStock <= 0) {
+      throw new AppError(`Cannot sell "${product.name}". Product is out of stock.`, 400);
+    }
     if (product.currentStock < qty) {
-      throw new AppError(`Insufficient stock for ${product.name}. Available: ${product.currentStock}`, 400);
+      throw new AppError(`Insufficient stock for "${product.name}". Available: ${product.currentStock}, requested: ${qty}.`, 400);
     }
     const sellingPrice = Number(item.sellingPrice ?? product.sellingPrice);
     if (isNaN(sellingPrice) || sellingPrice < 0) {

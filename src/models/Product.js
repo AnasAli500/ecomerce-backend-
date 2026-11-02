@@ -32,6 +32,9 @@ productSchema.index({ name: 'text', sku: 'text' });
 productSchema.virtual('isLowStock').get(function isLowStock() {
   return this.currentStock <= this.minStock;
 });
+productSchema.virtual('isOutOfStock').get(function isOutOfStock() {
+  return this.currentStock <= 0;
+});
 
 productSchema.set('toJSON', { virtuals: true });
 productSchema.set('toObject', { virtuals: true });

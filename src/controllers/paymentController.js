@@ -39,11 +39,24 @@ const listCustomerPayments = asyncHandler(async (req, res) => {
 const createCustomerPayment = asyncHandler(async (req, res) => {
   const customer = await Customer.findById(req.body.customer);
   if (!customer) throw new AppError('Customer not found.', 404);
-  if (customer.totalDebt <= 0) throw new AppError('This customer has no outstanding debt.');
+  if (customer.totalDebt <= 0) throw new AppError('This customer has no outstanding debt.', 400);
 
   const amount = roundMoney(Number(req.body.amount));
+  if (isNaN(amount) || amount <= 0) {
+    throw new AppError('Payment amount must be greater than 0.', 400);
+  }
   if (amount > customer.totalDebt) {
-    throw new AppError(`Payment cannot exceed remaining debt of ${customer.totalDebt}.`);
+    throw new AppError(`Payment cannot exceed remaining debt of ${customer.totalDebt}.`, 400);
+  }
+
+  // Prevent accidental rapid duplicate payment submissions within 4 seconds
+  const duplicatePayment = await CustomerPayment.findOne({
+    customer: customer._id,
+    amount,
+    createdAt: { $gte: new Date(Date.now() - 4000) },
+  });
+  if (duplicatePayment) {
+    throw new AppError('Duplicate payment detected: A payment for this amount was just recorded.', 409);
   }
 
   const previousDebt = customer.totalDebt;
