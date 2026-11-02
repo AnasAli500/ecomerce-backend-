@@ -124,8 +124,8 @@ const dashboard = asyncHandler(async (_req, res) => {
     Expense.find({ date: { $gte: todayFrom, $lte: todayTo } }),
     Product.find({
       isDeleted: false,
-      $expr: { $lte: ['$currentStock', '$minStock'] },
-    }).populate('category', 'name').limit(10),
+      $or: [{ currentStock: { $lte: 2 } }, { $expr: { $lte: ['$currentStock', '$minStock'] } }],
+    }).populate('category', 'name').limit(15),
   ]);
 
   for (const sale of todaySales) {

@@ -9,13 +9,15 @@ async function applyStockChange({
   referenceType,
   referenceId,
   referenceNumber,
+  supplier,
+  purchaseCost,
   notes,
   createdBy,
   date,
 }) {
   const qty = Number(quantity);
   if (!qty || qty <= 0) {
-    throw new AppError('Quantity must be greater than 0.');
+    throw new AppError('Quantity must be greater than 0.', 400);
   }
 
   const product = await Product.findById(productId);
@@ -31,6 +33,12 @@ async function applyStockChange({
   }
 
   product.currentStock = Math.max(newStock, 0);
+
+  if (purchaseCost !== undefined && purchaseCost !== null && !isNaN(Number(purchaseCost)) && Number(purchaseCost) > 0) {
+    product.purchasePrice = Number(purchaseCost);
+    product.costPrice = Number(purchaseCost);
+  }
+
   await product.save();
 
   const movement = await StockMovement.create({
@@ -38,11 +46,13 @@ async function applyStockChange({
     type,
     quantity: qty,
     previousStock,
-    newStock,
+    newStock: product.currentStock,
     reason,
     referenceType: referenceType || '',
     referenceId: referenceId || null,
     referenceNumber: referenceNumber || '',
+    supplier: supplier || null,
+    purchaseCost: purchaseCost !== undefined && purchaseCost !== null ? Number(purchaseCost) : (product.purchasePrice || 0),
     notes: notes || '',
     createdBy,
     date: date || new Date(),

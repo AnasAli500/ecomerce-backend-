@@ -30,10 +30,15 @@ productSchema.pre('save', function (next) {
 
 productSchema.index({ name: 'text', sku: 'text' });
 productSchema.virtual('isLowStock').get(function isLowStock() {
-  return this.currentStock <= this.minStock;
+  return this.currentStock > 0 && this.currentStock <= 2;
 });
 productSchema.virtual('isOutOfStock').get(function isOutOfStock() {
   return this.currentStock <= 0;
+});
+productSchema.virtual('stockStatus').get(function stockStatus() {
+  if (this.currentStock <= 0) return 'Out of Stock';
+  if (this.currentStock <= 2) return 'Low Stock';
+  return 'In Stock';
 });
 
 productSchema.set('toJSON', { virtuals: true });

@@ -424,4 +424,157 @@ describe('Customer Debt Management & Out-of-Stock Protection Tests', () => {
       assert.equal(afterSaleProd.currentStock, 8);
     });
   });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // FEATURE 3: IMPROVE LOW STOCK AND ADD STOCK FUNCTIONALITY
+  // ─────────────────────────────────────────────────────────────────────────────
+  describe('5. Add Stock & Automatic Stock Status Updates', () => {
+    let lowStockProduct;
+
+    before(async () => {
+      lowStockProduct = await Product.create({
+        name: `Threshold Tester ${Date.now()}`,
+        sku: `THRES_${Date.now()}`,
+        category: testCategory._id,
+        sellingPrice: 50,
+        purchasePrice: 25,
+        costPrice: 25,
+        currentStock: 0,
+        minStock: 2,
+      });
+      cleanupProducts.push(lowStockProduct._id);
+    });
+
+    it('rejects adding negative or zero quantity with 400', async () => {
+      const res = await fetch(`${baseUrl}/api/stock/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          product: lowStockProduct._id,
+          quantity: 0,
+        }),
+      });
+
+      assert.equal(res.status, 400);
+      const json = await res.json();
+      assert.match(json.message, /quantity/i);
+    });
+
+    it('Scenario 1: Current Stock: 0 + Added Stock: 5 = 5 -> In Stock', async () => {
+      const res = await fetch(`${baseUrl}/api/stock/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          product: lowStockProduct._id,
+          quantity: 5,
+          purchaseCost: 28,
+        }),
+      });
+
+      assert.equal(res.status, 200);
+      const json = await res.json();
+      assert.equal(json.data.product.currentStock, 5);
+      assert.equal(json.data.product.stockStatus, 'In Stock');
+      assert.equal(json.data.movement.previousStock, 0);
+      assert.equal(json.data.movement.quantity, 5);
+      assert.equal(json.data.movement.newStock, 5);
+      assert.equal(json.data.movement.purchaseCost, 28);
+    });
+
+    it('Scenario 2: Current Stock: 1 + Added Stock: 1 = 2 -> Low Stock', async () => {
+      // Set stock to 1
+      lowStockProduct.currentStock = 1;
+      await lowStockProduct.save();
+
+      const res = await fetch(`${baseUrl}/api/stock/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          product: lowStockProduct._id,
+          quantity: 1,
+        }),
+      });
+
+      assert.equal(res.status, 200);
+      const json = await res.json();
+      assert.equal(json.data.product.currentStock, 2);
+      assert.equal(json.data.product.stockStatus, 'Low Stock');
+    });
+
+    it('Scenario 3: Current Stock: 2 + Added Stock: 5 = 7 -> In Stock', async () => {
+      const res = await fetch(`${baseUrl}/api/stock/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          product: lowStockProduct._id,
+          quantity: 5,
+        }),
+      });
+
+      assert.equal(res.status, 200);
+      const json = await res.json();
+      assert.equal(json.data.product.currentStock, 7);
+      assert.equal(json.data.product.stockStatus, 'In Stock');
+    });
+
+    it('Scenario 4: Current Stock: 1 + Added Stock: 10 = 11 -> In Stock with Supplier & Date', async () => {
+      lowStockProduct.currentStock = 1;
+      await lowStockProduct.save();
+
+      const supplier = await Supplier.create({
+        name: `Restock Partner ${Date.now()}`,
+        company: 'Partner Co',
+        phone: '99887766',
+      });
+
+      const res = await fetch(`${baseUrl}/api/stock/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          product: lowStockProduct._id,
+          quantity: 10,
+          supplier: supplier._id,
+          purchaseCost: 32,
+          date: '2026-11-02',
+          notes: 'Restocked low inventory',
+        }),
+      });
+
+      assert.equal(res.status, 200);
+      const json = await res.json();
+      assert.equal(json.data.product.currentStock, 11);
+      assert.equal(json.data.product.stockStatus, 'In Stock');
+      assert.equal(json.data.movement.supplier._id, String(supplier._id));
+      assert.equal(json.data.movement.purchaseCost, 32);
+      assert.equal(json.data.movement.previousStock, 1);
+      assert.equal(json.data.movement.newStock, 11);
+
+      // Verify stock history route returns this movement
+      const histRes = await fetch(`${baseUrl}/api/stock?product=${lowStockProduct._id}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(histRes.status, 200);
+      const histJson = await histRes.json();
+      assert.ok(histJson.data.length > 0);
+      const latest = histJson.data[0];
+      assert.equal(latest.quantity, 10);
+      assert.equal(latest.newStock, 11);
+      assert.equal(latest.supplier?.name, supplier.name);
+    });
+  });
 });
