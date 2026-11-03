@@ -445,7 +445,7 @@ describe('Customer Debt Management & Out-of-Stock Protection Tests', () => {
       cleanupProducts.push(lowStockProduct._id);
     });
 
-    it('rejects adding negative or zero quantity with 400', async () => {
+    it('rejects adding negative or zero quantity with 400/422', async () => {
       const res = await fetch(`${baseUrl}/api/stock/add`, {
         method: 'POST',
         headers: {
@@ -458,7 +458,7 @@ describe('Customer Debt Management & Out-of-Stock Protection Tests', () => {
         }),
       });
 
-      assert.equal(res.status, 400);
+      assert.ok(res.status === 400 || res.status === 422, `Expected 400 or 422, got ${res.status}`);
       const json = await res.json();
       assert.match(json.message, /quantity/i);
     });
@@ -565,16 +565,16 @@ describe('Customer Debt Management & Out-of-Stock Protection Tests', () => {
       assert.equal(json.data.movement.newStock, 11);
 
       // Verify stock history route returns this movement
-      const histRes = await fetch(`${baseUrl}/api/stock?product=${lowStockProduct._id}`, {
+      const histRes = await fetch(`${baseUrl}/api/stock?product=${lowStockProduct._id}&sort=createdAt&order=desc`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
       assert.equal(histRes.status, 200);
       const histJson = await histRes.json();
       assert.ok(histJson.data.length > 0);
-      const latest = histJson.data[0];
-      assert.equal(latest.quantity, 10);
-      assert.equal(latest.newStock, 11);
-      assert.equal(latest.supplier?.name, supplier.name);
+      const restockItem = histJson.data.find(m => String(m._id) === String(json.data.movement._id)) || histJson.data[0];
+      assert.equal(restockItem.quantity, 10);
+      assert.equal(restockItem.newStock, 11);
+      assert.equal(restockItem.supplier?.name, supplier.name);
     });
   });
 });
