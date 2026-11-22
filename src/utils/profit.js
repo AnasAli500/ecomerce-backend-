@@ -69,6 +69,21 @@ function calculateSaleProfit(sale) {
   const saleCost = roundMoney(totalCostSum);
   const saleProfit = roundMoney(lineProfitsSum - orderDiscount);
 
+  const paid = roundMoney(Number(sale.paid ?? 0));
+  const total = roundMoney(Number(sale.total ?? saleRevenue));
+  const debt = roundMoney(
+    sale.debt !== undefined && sale.debt !== null
+      ? Number(sale.debt)
+      : Math.max(total - paid, 0)
+  );
+
+  let paymentStatus = sale.paymentStatus;
+  if (!paymentStatus) {
+    if (debt <= 0) paymentStatus = 'Paid';
+    else if (paid > 0) paymentStatus = 'Partial';
+    else paymentStatus = 'Unpaid';
+  }
+
   return {
     saleId: sale._id ? String(sale._id) : (sale.saleId || ''),
     invoiceNo: sale.invoiceNumber || sale.invoiceNo || '',
@@ -80,6 +95,10 @@ function calculateSaleProfit(sale) {
     saleRevenue,
     saleCost,
     saleProfit,
+    total,
+    paid,
+    debt,
+    paymentStatus,
     items,
   };
 }
@@ -91,12 +110,16 @@ function calculateSalesProfit(sales = []) {
   let totalRevenue = 0;
   let totalCost = 0;
   let totalProfit = 0;
+  let totalDebt = 0;
+  let totalPaid = 0;
 
   const processedSales = sales.map((sale) => {
     const computed = calculateSaleProfit(sale);
     totalRevenue += computed.saleRevenue;
     totalCost += computed.saleCost;
     totalProfit += computed.saleProfit;
+    totalDebt += computed.debt;
+    totalPaid += computed.paid;
     return computed;
   });
 
@@ -105,6 +128,8 @@ function calculateSalesProfit(sales = []) {
       totalRevenue: roundMoney(totalRevenue),
       totalCost: roundMoney(totalCost),
       totalProfit: roundMoney(totalProfit),
+      totalDebt: roundMoney(totalDebt),
+      totalPaid: roundMoney(totalPaid),
       salesCount: sales.length,
     },
     sales: processedSales,
